@@ -5,6 +5,7 @@ import { config } from "dotenv";
 import { connDb } from "./config/dbConn.js";
 import { errorMiddleware } from "./middlewares/error.middleware.js";
 import multer from "multer";
+import multerS3 from "multer-s3";
 import crypto from "crypto";
 import sharp from "sharp";
 import { Post } from "./models/post.model.js";
@@ -57,8 +58,22 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Multer config
-const storage = multer.memoryStorage();
-const upload = multer({ storage: storage });
+// const storage = multer.memoryStorage();
+// const upload = multer({ storage: storage });
+
+const upload = multer({
+  storage: multerS3({
+    s3: s3Client,
+    bucket: bucket_name,
+    metadata: function (req, file, cb) {
+      cb(null, { fieldName: file.fieldname });
+    },
+    key: function (req, file, cb) {
+      const filename = getRandomFileName();
+      cb(null, `uploads/test/${filename}-`);
+    },
+  }),
+});
 
 app.get("/", (req, res) => {
   res.status(200).json({
@@ -107,6 +122,32 @@ app.post("/api/posts/add", upload.single("image"), async (req, res, next) => {
     return next("Something went wrong");
   }
 });
+
+app.post(
+  "/api/posts/multer",
+  upload.single("image"),
+  async (req, res, next) => {
+    try {
+      const { caption } = req.body;
+
+      const post = await Post.create({
+        caption,
+        image: req.file.key,
+      });
+
+      if (!post) return next("Something went wrong");
+
+      return res.status(200).json({
+        success: true,
+        message: "Ok",
+        data: post,
+      });
+    } catch (error) {
+      console.log(error);
+      return next("Something went wrong");
+    }
+  }
+);
 
 app.get("/api/posts", async (req, res, next) => {
   try {

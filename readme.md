@@ -162,3 +162,50 @@ const invalidationCommand = new CreateInvalidationCommand({
 
 await cloudFront.send(invalidationCommand);
 ```
+
+# Using Multer S3
+
+```
+const upload = multer({
+  storage: multerS3({
+    s3: s3Client,
+    bucket: bucket_name,
+    metadata: function (req, file, cb) {
+      cb(null, { fieldName: file.fieldname });
+    },
+    key: function (req, file, cb) {
+      const filename = getRandomFileName();
+      cb(null, `uploads/test/${filename}-`);
+    },
+  }),
+});
+```
+
+## Usage 
+```
+app.post(
+  "/api/posts/multer",
+  upload.single("image"),
+  async (req, res, next) => {
+    try {
+      const { caption } = req.body;
+
+      const post = await Post.create({
+        caption,
+        image: req.file.key,
+      });
+
+      if (!post) return next("Something went wrong");
+
+      return res.status(200).json({
+        success: true,
+        message: "Ok",
+        data: post,
+      });
+    } catch (error) {
+      console.log(error);
+      return next("Something went wrong");
+    }
+  }
+);
+```

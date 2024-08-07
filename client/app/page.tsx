@@ -29,7 +29,7 @@ export default function Home() {
       formData.append("image", file);
       formData.append("caption", caption);
       const { data } = await axios.post(
-        "http://localhost:5000/api/posts/add",
+        "http://localhost:5000/api/posts/multer",
         formData,
         {
           headers: {
@@ -51,8 +51,6 @@ export default function Home() {
   useEffect(() => {
     getPosts();
   }, []);
-
-  console.log(posts)
 
   const handleDelete = async (id: string) => {
     try {

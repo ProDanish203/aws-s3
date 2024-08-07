@@ -5,6 +5,9 @@ import { config } from "dotenv";
 import { connDb } from "./config/dbConn.js";
 import { errorMiddleware } from "./middlewares/error.middleware.js";
 import multer from "multer";
+import crypto from "crypto";
+import sharp from "sharp";
+import { Post } from "./models/post.model.js";
 // S3
 import {
   S3Client,
@@ -13,10 +16,10 @@ import {
   DeleteObjectCommand,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
-
-import crypto from "crypto";
-import sharp from "sharp";
-import { Post } from "./models/post.model.js";
+import {
+  CloudFrontClient,
+  CreateInvalidationCommand,
+} from "@aws-sdk/client-cloudfront";
 
 config();
 
@@ -29,8 +32,18 @@ const bucket_name = process.env.BUCKET_NAME;
 const bucket_region = process.env.BUCKET_REGION;
 const bucket_access_key = process.env.AWS_BUCKET_ACCESS_KEY_ID;
 const bucket_secret_key = process.env.AWS_BUCKET_SECRET_ACCESS_KEY;
+const cloudfront_distribution_id = process.env.CLOUDFRONT_DISTRIBUTION_ID;
+const cloudfare_url = process.env.CLOUDFRONT_URL;
 
 const s3Client = new S3Client({
+  region: bucket_region,
+  credentials: {
+    accessKeyId: bucket_access_key,
+    secretAccessKey: bucket_secret_key,
+  },
+});
+
+const cloudFront = new CloudFrontClient({
   region: bucket_region,
   credentials: {
     accessKeyId: bucket_access_key,
@@ -102,11 +115,14 @@ app.get("/api/posts", async (req, res, next) => {
 
     const postsWithUrls = await Promise.all(
       posts.map(async (post) => {
-        const command = new GetObjectCommand({
-          Bucket: bucket_name,
-          Key: post.image,
-        });
-        const url = await getSignedUrl(s3Client, command, { expoiresIn: 3600 });
+        // const command = new GetObjectCommand({
+        //   Bucket: bucket_name,
+        //   Key: post.image,
+        // });
+        // const url = await getSignedUrl(s3Client, command, { expoiresIn: 3600 });
+
+        // Added Clodfront URL
+        const url = `${cloudfare_url}${post.image}`;
         return { ...post.toObject(), imageUrl: url };
       })
     );
@@ -134,6 +150,20 @@ app.delete("/api/posts/:id", async (req, res, next) => {
     });
 
     await s3Client.send(command);
+
+    // Invalidate the cloudfront cache for the deleted image
+    const invalidationCommand = new CreateInvalidationCommand({
+      DistributionId: cloudfront_distribution_id,
+      InvalidationBatch: {
+        CallerReference: post.image,
+        Paths: {
+          Quantity: 1,
+          Items: [`/${post.image}`],
+        },
+      },
+    });
+
+    await cloudFront.send(invalidationCommand);
 
     return res.status(200).json({
       success: true,

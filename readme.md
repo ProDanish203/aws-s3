@@ -93,3 +93,72 @@ const command = new DeleteObjectCommand({
 
 await s3Client.send(command);
 ```
+
+
+# CloudFront
+
+CloudFront is AWS's content delivery network (CDN) that securely delivers data, videos, applications, and APIs globally with low latency and high transfer speeds.
+
+## How it works
+
+1. **Content Distribution:** CloudFront caches your content at edge locations worldwide.
+
+2. **User Request:** When a user requests content, they're directed to the nearest edge location.
+
+3. **Cache Check:** If the content is in the edge location's cache, it's served immediately.
+
+4. **Origin Fetch:** If not cached, CloudFront retrieves it from the origin server (e.g., S3 bucket) and caches it for future requests.
+
+## Why use CloudFront
+
+1. **Improved Performance:** Reduces latency by serving content from locations closer to users.
+
+2. **Scalability:** Handles traffic spikes without overloading your origin server.
+
+3. **Cost Efficiency:** Reduces the load on your origin servers, potentially lowering costs.
+
+4. **Security:** Provides SSL/TLS encryption and integrates with AWS Shield for DDoS protection.
+
+5. **Global Reach:** Enables you to serve content quickly to users worldwide.
+
+6. **Customization:** Allows you to set cache behaviors, restrict access, and customize content delivery.
+
+CloudFront is particularly useful for websites and applications with a global audience, or those needing to deliver large
+
+## Configuring the Cloudfront - NodeJs
+
+### Install dependencies
+```
+npm i @aws-sdk/client-cloudfront
+```
+
+```
+const cloudFront = new CloudFrontClient({
+  region: bucket_region,
+  credentials: {
+    accessKeyId: bucket_access_key,
+    secretAccessKey: bucket_secret_key,
+  },
+});
+```
+
+### The url will now become:
+```
+const url = `${cloudfare_url}${object_name}`;
+```
+
+### Revalidate the cache after deleting the object from a bucket:
+```
+const invalidationCommand = new CreateInvalidationCommand({
+  DistributionId: cloudfront_distribution_id,
+  InvalidationBatch: {
+    CallerReference: post.image,
+    Paths: {
+      Quantity: 1,
+      Items: [`/${post.image}`],
+    },
+  },
+});
+
+await cloudFront.send(invalidationCommand);
+```

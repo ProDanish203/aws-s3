@@ -52,6 +52,8 @@ export default function Home() {
     getPosts();
   }, []);
 
+  console.log(posts)
+
   const handleDelete = async (id: string) => {
     try {
       const { data } = await axios.delete(
